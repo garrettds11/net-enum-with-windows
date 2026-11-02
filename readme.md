@@ -29,45 +29,33 @@ These are easier to filter and export than older command-line utilities.
 ### 1. Capture the host and operating system
 ```
 Get-ComputerInfo
-
 Get-CimInstance Win32_ComputerSystem
-
 Get-CimInstance Win32_OperatingSystem
 ```
 
 ### 2. Capture interfaces, addresses, DNS, and routes
 ```
 Get-NetAdapter
-
 Get-NetIPConfiguration
-
 Get-NetIPAddress
-
 Get-DnsClientServerAddress
-
 Get-NetRoute
 ```
 
 A compact view for diagramming:
 ```
 Get-NetIPConfiguration |
-
-Select-Object InterfaceAlias, InterfaceDescription,
-
-@{N='IPv4';E={$*.IPv4Address.IPAddress}},*
-
-*@{N='Gateway';E={$*.IPv4DefaultGateway.NextHop}},
-
-@{N='DNS';E={$_.DNSServer.ServerAddresses}}
+    Select-Object InterfaceAlias, InterfaceDescription,
+        @{N='IPv4';E={$_.IPv4Address.IPAddress}},
+        @{N='Gateway';E={$_.IPv4DefaultGateway.NextHop}},
+        @{N='DNS';E={$_.DNSServer.ServerAddresses}}
 ```
 
 ### 3. Find neighboring systems
 ```
 Get-NetNeighbor
-
 Get-NetNeighbor -AddressFamily IPv4 |
-
-Where-Object State -ne 'Unreachable'
+    Where-Object State -ne 'Unreachable'
 ```
 
 This is useful for discovering systems visible on the same Layer 2 network. In a cloud environment, however, the cloud network may suppress traditional ARP visibility, so an empty or short list does not imply that no other resources exist.
@@ -75,45 +63,32 @@ This is useful for discovering systems visible on the same Layer 2 network. In a
 ### 4. Identify active dependencies
 ```
 Get-NetTCPConnection
-
 Get-NetUDPEndpoint
 ```
 
 Focus on established outbound connections and listening services:
 ```
 Get-NetTCPConnection |
-
-Where-Object State -eq Established |
-
-Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort,
-
-OwningProcess
+    Where-Object State -eq Established |
+    Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort,
+        OwningProcess
 
 Get-NetTCPConnection |
-
-Where-Object State -eq Listen |
-
-Select-Object LocalAddress, LocalPort, OwningProcess
+    Where-Object State -eq Listen |
+    Select-Object LocalAddress, LocalPort, OwningProcess
+```
 
 Resolve the owning process:
-
+```
 Get-NetTCPConnection |
-
-Where-Object State -eq Established |
-
-ForEach-Object {
-
-[pscustomobject]@{
-
-LocalEndpoint = "$($*.LocalAddress):$($*.LocalPort)"
-
-RemoteEndpoint = "$($*.RemoteAddress):$($*.RemotePort)"
-
-Process = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).Name
-
-}
-
-}
+    Where-Object State -eq Established |
+    ForEach-Object {
+        [pscustomobject]@{
+            LocalEndpoint  = "$($_.LocalAddress):$($_.LocalPort)"
+            RemoteEndpoint = "$($_.RemoteAddress):$($_.RemotePort)"
+            Process        = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).Name
+        }
+    }
 ```
 
 Run PowerShell as administrator for the most complete process and connection details.
@@ -121,90 +96,69 @@ Run PowerShell as administrator for the most complete process and connection det
 ### 5. Capture firewall exposure
 ```
 Get-NetFirewallProfile
-
 Get-NetFirewallRule -Enabled True
-
 Get-NetFirewallPortFilter
+```
 
 To associate enabled inbound rules with ports:
-
+```
 Get-NetFirewallRule -Enabled True -Direction Inbound |
-
-Get-NetFirewallPortFilter |
-
-Select-Object Protocol, LocalPort, RemotePort
+    Get-NetFirewallPortFilter |
+    Select-Object Protocol, LocalPort, RemotePort
 ```
 
 ### 6. Test known relationships
 ```
 Test-Connection server01
-
 Test-NetConnection server01 -Port 443
-
 Test-NetConnection database01 -Port 1433
-
 Resolve-DnsName server01
+```
 
 `Test-NetConnection` is particularly useful when validating the arrows in a diagram:
-
+```
 Test-NetConnection database01 -Port 1433 -InformationLevel Detailed
 ```
 
 ## Minimal collection script
 ```
-Run this from each Windows VM and save the outputs to a folder:
-
 $Out = Join-Path $env:USERPROFILE "Desktop\NetworkMap-$env:COMPUTERNAME"
-
 New-Item -ItemType Directory -Path $Out -Force | Out-Null
 
 Get-ComputerInfo |
-
-Out-File "$Out\01-ComputerInfo.txt"
+    Out-File "$Out\01-ComputerInfo.txt"
 
 Get-NetAdapter |
-
-Format-List * |
-
-Out-File "$Out\02-Adapters.txt"
+    Format-List * |
+    Out-File "$Out\02-Adapters.txt"
 
 Get-NetIPConfiguration |
-
-Format-List * |
-
-Out-File "$Out\03-IPConfiguration.txt"
+    Format-List * |
+    Out-File "$Out\03-IPConfiguration.txt"
 
 Get-NetIPAddress |
-
-Export-Csv "$Out\04-IPAddresses.csv" -NoTypeInformation
+    Export-Csv "$Out\04-IPAddresses.csv" -NoTypeInformation
 
 Get-NetRoute |
-
-Export-Csv "$Out\05-Routes.csv" -NoTypeInformation
+    Export-Csv "$Out\05-Routes.csv" -NoTypeInformation
 
 Get-DnsClientServerAddress |
-
-Export-Csv "$Out\06-DNS.csv" -NoTypeInformation
+    Export-Csv "$Out\06-DNS.csv" -NoTypeInformation
 
 Get-NetNeighbor |
-
-Export-Csv "$Out\07-Neighbors.csv" -NoTypeInformation
+    Export-Csv "$Out\07-Neighbors.csv" -NoTypeInformation
 
 Get-NetTCPConnection |
-
-Export-Csv "$Out\08-TCPConnections.csv" -NoTypeInformation
+    Export-Csv "$Out\08-TCPConnections.csv" -NoTypeInformation
 
 Get-NetUDPEndpoint |
-
-Export-Csv "$Out\09-UDPEndpoints.csv" -NoTypeInformation
+    Export-Csv "$Out\09-UDPEndpoints.csv" -NoTypeInformation
 
 Get-NetFirewallProfile |
-
-Export-Csv "$Out\10-FirewallProfiles.csv" -NoTypeInformation
+    Export-Csv "$Out\10-FirewallProfiles.csv" -NoTypeInformation
 
 Get-NetFirewallRule -Enabled True |
-
-Export-Csv "$Out\11-FirewallRules.csv" -NoTypeInformation
+    Export-Csv "$Out\11-FirewallRules.csv" -NoTypeInformation
 ```
 
 ## Turn the output into a diagram
@@ -224,23 +178,15 @@ For each asset, capture:
 
 A practical layout is:
 
-Cloud/account
-
-Region
-
-Virtual network
-
-Subnet
-
-VM or service
-
-IP address
-
-Role
-
-Listening ports
-
-Dependencies
+> Cloud/account
+>   Region
+>     Virtual network
+>       Subnet
+>         VM or service
+>           IP address
+>           Role
+>           Listening ports
+>           Dependencies
 
 ## Important limitation
 

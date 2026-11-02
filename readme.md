@@ -27,15 +27,16 @@ For a small cloud environment, the simplest approach is to inventory **identity,
 These are easier to filter and export than older command-line utilities.
 
 ### 1. Capture the host and operating system
-
+```
 Get-ComputerInfo
 
 Get-CimInstance Win32_ComputerSystem
 
 Get-CimInstance Win32_OperatingSystem
+```
 
 ### 2. Capture interfaces, addresses, DNS, and routes
-
+```
 Get-NetAdapter
 
 Get-NetIPConfiguration
@@ -45,9 +46,10 @@ Get-NetIPAddress
 Get-DnsClientServerAddress
 
 Get-NetRoute
+```
 
 A compact view for diagramming:
-
+```
 Get-NetIPConfiguration |
 
 Select-Object InterfaceAlias, InterfaceDescription,
@@ -57,25 +59,28 @@ Select-Object InterfaceAlias, InterfaceDescription,
 *@{N='Gateway';E={$*.IPv4DefaultGateway.NextHop}},
 
 @{N='DNS';E={$_.DNSServer.ServerAddresses}}
+```
 
 ### 3. Find neighboring systems
-
+```
 Get-NetNeighbor
 
 Get-NetNeighbor -AddressFamily IPv4 |
 
 Where-Object State -ne 'Unreachable'
+```
 
 This is useful for discovering systems visible on the same Layer 2 network. In a cloud environment, however, the cloud network may suppress traditional ARP visibility, so an empty or short list does not imply that no other resources exist.
 
 ### 4. Identify active dependencies
-
+```
 Get-NetTCPConnection
 
 Get-NetUDPEndpoint
+```
 
 Focus on established outbound connections and listening services:
-
+```
 Get-NetTCPConnection |
 
 Where-Object State -eq Established |
@@ -109,11 +114,12 @@ Process = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).Name
 }
 
 }
+```
 
 Run PowerShell as administrator for the most complete process and connection details.
 
 ### 5. Capture firewall exposure
-
+```
 Get-NetFirewallProfile
 
 Get-NetFirewallRule -Enabled True
@@ -127,9 +133,10 @@ Get-NetFirewallRule -Enabled True -Direction Inbound |
 Get-NetFirewallPortFilter |
 
 Select-Object Protocol, LocalPort, RemotePort
+```
 
 ### 6. Test known relationships
-
+```
 Test-Connection server01
 
 Test-NetConnection server01 -Port 443
@@ -141,9 +148,10 @@ Resolve-DnsName server01
 `Test-NetConnection` is particularly useful when validating the arrows in a diagram:
 
 Test-NetConnection database01 -Port 1433 -InformationLevel Detailed
+```
 
 ## Minimal collection script
-
+```
 Run this from each Windows VM and save the outputs to a folder:
 
 $Out = Join-Path $env:USERPROFILE "Desktop\NetworkMap-$env:COMPUTERNAME"
@@ -197,6 +205,7 @@ Export-Csv "$Out\10-FirewallProfiles.csv" -NoTypeInformation
 Get-NetFirewallRule -Enabled True |
 
 Export-Csv "$Out\11-FirewallRules.csv" -NoTypeInformation
+```
 
 ## Turn the output into a diagram
 
